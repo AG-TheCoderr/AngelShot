@@ -58,7 +58,11 @@ canvas { display: block; width: 100%; height: 100%; }
 .scope-reticle .mil { position: absolute; left: calc(50% - 3px); width: 7px; height: 1px; background: rgba(238,222,193,.8); }
 .scope-reticle .m1 { top: 58%; } .scope-reticle .m2 { top: 66%; } .scope-reticle .m3 { top: 74%; }
 .scope-reticle em { position: absolute; top: 50%; left: 50%; width: 1px; height: 19%; background: linear-gradient(transparent, rgba(238,222,193,.88)); }
-.scope-label { position: absolute; bottom: 23px; left: 50%; transform: translateX(-50%); font: 9px var(--mono); letter-spacing: .12em; color: rgba(238,222,193,.82); white-space: nowrap; }
+.scope-label { position: absolute; bottom: 17px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 5px; font: 8px var(--mono); letter-spacing: .12em; color: rgba(238,222,193,.82); white-space: nowrap; }
+.scope-label span:last-child { color: rgba(238,222,193,.58); font-size: 7px; }
+.breath-meter { position: absolute; top: 15%; left: 29%; right: 29%; height: 3px; border-radius: 2px; background: rgba(238,222,193,.28); opacity: 0; transition: opacity .12s; overflow: hidden; }
+.breath-meter.visible { opacity: .9; }
+.breath-meter span { display: block; width: 100%; height: 100%; background: #dca477; transform-origin: left center; transition: transform .08s linear; }
 .center-message { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(13,19,16,.29); pointer-events: auto; transition: opacity .2s, visibility .2s; }
 .center-message.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
 .message-panel { width: min(440px, calc(100vw - 40px)); padding: 42px 47px 35px; border: 1px solid rgba(241,238,228,.26); background: linear-gradient(145deg, rgba(18,26,22,.96), rgba(27,35,29,.93)); box-shadow: 0 24px 90px rgba(0,0,0,.3); position: relative; }
@@ -108,10 +112,13 @@ body.touch-device, body.touch-device #game { height: 100dvh; }
 .touch-device #hud::after { margin: 8px; }
 .touch-device .bottom-left, .touch-device .corner-note { display: none; }
 .touch-device .bottom-right { top: calc(75px + env(safe-area-inset-top)); right: calc(22px + env(safe-area-inset-right)); bottom: auto; gap: 0; }
-.touch-device .scorebox { border: 0; padding: 0; }
-.touch-device .scorebox small { font-size: 7px; }
-.touch-device .scorebox strong { font-size: 24px; }
-.touch-device .ammo { display: none; }
+.touch-device .scorebox { display: block; padding-right: 8px; border-right: 1px solid rgba(241,238,228,.24); }
+.touch-device .scorebox small { font-size: 6px; }
+.touch-device .scorebox strong { font-size: 20px; }
+.touch-device .ammo { display: flex; gap: 6px; }
+.touch-device .ammo strong { font-size: 10px; }
+.touch-device .ammo small { font-size: 7px; }
+.touch-device .ammo-mark { font-size: 13px; }
 .touch-device .readout { top: calc(29px + env(safe-area-inset-top)); right: calc(22px + env(safe-area-inset-right)); gap: 6px; font-size: 8px; }
 .touch-device .readout i { margin: 0 2px; }
 .touch-device .readout #speed { font-size: 17px; }
@@ -128,14 +135,20 @@ body.touch-device, body.touch-device #game { height: 100dvh; }
 .move-pad-ring::after { left: 50%; top: 14%; bottom: 14%; width: 1px; }
 .move-stick { position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; transform: translate(-50%, -50%); border: 1px solid rgba(241,238,228,.74); border-radius: 50%; background: rgba(202,157,115,.82); box-shadow: 0 3px 12px rgba(0,0,0,.34), inset 0 0 0 5px rgba(24,31,26,.18); will-change: transform; }
 .move-pad > span { position: absolute; bottom: -17px; left: 50%; transform: translateX(-50%); color: rgba(241,238,228,.7); font: 8px var(--mono); letter-spacing: .18em; text-shadow: 0 1px 4px #111; }
-.touch-actions { position: absolute; right: calc(20px + env(safe-area-inset-right)); bottom: calc(23px + env(safe-area-inset-bottom)); width: 184px; height: 190px; pointer-events: none; }
+.touch-actions { position: absolute; right: calc(20px + env(safe-area-inset-right)); bottom: calc(23px + env(safe-area-inset-bottom)); width: 200px; height: 205px; pointer-events: none; }
 .touch-button { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 0; border: 1px solid rgba(241,238,228,.54); border-radius: 50%; color: var(--paper); background: rgba(20,28,23,.74); box-shadow: 0 4px 15px rgba(0,0,0,.28), inset 0 0 0 4px rgba(241,238,228,.05); backdrop-filter: blur(4px); pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; font: 700 11px var(--display); letter-spacing: .1em; transition: transform .08s, background .08s, border-color .08s; }
 .touch-button small { color: rgba(241,238,228,.64); font: 7px var(--mono); letter-spacing: .08em; }
 .touch-button.pressed { transform: scale(.94); background: rgba(195,124,76,.88); border-color: #f1c49f; }
+.touch-button:disabled { opacity: .38; }
 .fire-button { right: 0; bottom: 0; width: 83px; height: 83px; border-color: rgba(217,154,104,.8); color: #f3c39d; font-size: 13px; background: rgba(79,45,30,.78); }
 .wings-button { left: 0; bottom: 0; width: 78px; height: 78px; }
-.scope-button { right: 12px; top: 0; width: 61px; height: 61px; font-size: 15px; }
-.test-button { left: 7px; top: 12px; width: 64px; height: 34px; border-radius: 12px; color: #e4b18b; font-size: 9px; }
+.scope-button { right: 8px; top: 0; width: 60px; height: 60px; font-size: 15px; }
+.test-button, .reload-button { top: 12px; width: 52px; height: 34px; border-radius: 12px; font-size: 8px; }
+.test-button { left: 0; color: #e4b18b; }
+.reload-button { left: 59px; color: #e5d4b7; }
+.steady-button { left: 50%; top: 72px; width: 76px; height: 38px; border-radius: 14px; transform: translateX(-50%); font-size: 8px; }
+.steady-button.pressed { transform: translateX(-50%) scale(.94); }
+.steady-button.steady-active { background: rgba(91,117,82,.88); border-color: #c6dda9; }
 .touch-look-hint { position: absolute; left: 50%; bottom: calc(13px + env(safe-area-inset-bottom)); transform: translateX(-50%); color: rgba(241,238,228,.47); font: 7px var(--mono); letter-spacing: .13em; white-space: nowrap; pointer-events: none; }
 .touch-device .crosshair { pointer-events: none; }
 .touch-device .scope-view { z-index: 2; pointer-events: none; }
