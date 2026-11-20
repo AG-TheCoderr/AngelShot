@@ -22,7 +22,7 @@
         </div>
         <div class="touch-actions">
           <button class="touch-button wings-button" id="wingsButton" aria-label="Jump, flap, and glide">WINGS<small>TAP / HOLD</small></button>
-          <button class="touch-button scope-button" id="scopeButton" aria-label="Hold to aim through scope">8×<small>SCOPE</small></button>
+          <button class="touch-button scope-button" id="scopeButton" aria-label="Hold to aim through scope"><span id="scopeButtonValue">8×</span><small>SCOPE</small></button>
           <button class="touch-button steady-button" id="steadyButton" aria-label="Hold breath to steady aim">STEADY</button>
           <button class="touch-button reload-button" id="reloadButton" aria-label="Reload rifle">RLD</button>
           <button class="touch-button test-button" id="ragdollButton" aria-label="Test and reset ragdoll">TEST</button>
@@ -31,11 +31,11 @@
         <div class="touch-look-hint">DRAG RIGHT SIDE TO LOOK</div>
       </div>
       <div class="crosshair" id="crosshair"><i></i><b></b></div>
-      <div class="scope-view" id="scopeView"><div class="scope-ring"><div class="scope-reticle"><i></i><b></b><span class="mil m1"></span><span class="mil m2"></span><span class="mil m3"></span><em></em></div><div class="scope-label"><span>AWM · 8× · ZERO 100M</span><span id="scopeWind">WIND 1.2 M/S →</span></div><div class="breath-meter" id="breathMeter"><span id="breathFill"></span></div></div></div>
-      <div class="center-message" id="centerMessage"><div class="message-panel"><span class="eyebrow">FIELD TEST · 01</span><h1>THE FLIGHT<br><em>RANGE</em></h1><p>Ballistic shooting meets winged movement.</p><button id="startButton">ENTER RANGE <span>↗</span></button><small id="startHint">DESKTOP · MOUSE + KEYBOARD</small></div></div>
+      <div class="scope-view" id="scopeView"><div class="scope-ring"><div class="scope-reticle"><i></i><b></b><span class="mil m1"></span><span class="mil m2"></span><span class="mil m3"></span><em></em></div><div class="scope-label"><span>AWM · <b id="scopeMagnificationLabel">8×</b> · ZERO <b id="scopeZeroLabel">100M</b></span><span id="scopeWind">WIND 1.2 M/S →</span></div><div class="breath-meter" id="breathMeter"><span id="breathFill"></span></div></div></div>
+      <div class="center-message" id="centerMessage"><div class="message-panel"><span class="eyebrow">PRE-FLIGHT · AWM / .338</span><h1>THE FLIGHT<br><em>RANGE</em></h1><p>Set up the rifle, then enter the range.</p><div class="range-setup" aria-label="Rifle setup"><button class="setup-option" id="zeroSetting"><small>OPTIC ZERO</small><strong id="zeroValue">100 M</strong><span>Tap to cycle</span></button><button class="setup-option" id="magnificationSetting"><small>SCOPE</small><strong id="magnificationValue">8×</strong><span>Tap to cycle</span></button><button class="setup-option" id="windSetting"><small>WIND · M/S</small><strong id="windValue">1.2 →</strong><span>Tap to cycle</span></button></div><button id="startButton">ENTER RANGE <span>↗</span></button><small id="startHint">DESKTOP · MOUSE + KEYBOARD</small></div></div>
       <div class="hit-flash" id="hitFlash"><span>TARGET HIT</span></div>
       <div class="ragdoll-toast" id="ragdollToast">RAGDOLL TEST ACTIVE <span>PRESS T TO RESET</span></div>
-      <div class="corner-note">WIND <b>1.2 M/S →</b><span>·</span> ZERO <b>100 M</b><span>·</span> GRAVITY <b>9.81 M/S²</b></div>
+      <div class="corner-note">WIND <b id="cornerWind">1.2 M/S →</b><span>·</span> ZERO <b id="cornerZero">100 M</b><span>·</span> GRAVITY <b>9.81 M/S²</b></div>
     </div>
     <script type="module" src="/src/main.js"></script>
   </body>
