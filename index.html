@@ -12,8 +12,8 @@
     <div id="hud" aria-live="polite">
       <div class="brand"><span class="brand-mark">A</span><div><strong>ANGELSHOT</strong><small>FLIGHT RANGE · MILESTONE 01</small></div></div>
       <div class="readout"><span class="live-dot"></span><span id="status">RANGE READY</span><i></i><span id="speed">0</span><small>KM/H</small></div>
-      <div class="bottom-left"><div class="hint-card"><span class="hint-key">W A S D</span><span>MOVE</span><span class="hint-key">MOUSE</span><span>LOOK</span><span class="hint-key">LMB</span><span>FIRE</span><span class="hint-key">RMB</span><span>SCOPE</span><span class="hint-key">SPACE</span><span>JUMP / FLAP · HOLD GLIDE</span></div><div class="hint-card secondary"><span class="hint-key">R</span><span>RAGDOLL TEST</span><span class="hint-key">T</span><span>RESET</span><span class="hint-key">ESC</span><span>UNLOCK CURSOR</span></div></div>
-      <div class="bottom-right"><div class="scorebox"><small>CONFIRMED HITS</small><strong id="score">00</strong></div><div class="ammo"><span class="ammo-mark">▰</span><div><strong>AWM / .338</strong><small>CHAMBERED</small></div></div></div>
+      <div class="bottom-left"><div class="hint-card"><span class="hint-key">W A S D</span><span>MOVE</span><span class="hint-key">MOUSE</span><span>LOOK</span><span class="hint-key">LMB</span><span>FIRE</span><span class="hint-key">RMB</span><span>SCOPE</span><span class="hint-key">SPACE</span><span>JUMP / FLAP · HOLD GLIDE</span><span class="hint-key">SHIFT</span><span>STEADY</span></div><div class="hint-card secondary"><span class="hint-key">R</span><span>RELOAD</span><span class="hint-key">K</span><span>RAGDOLL TEST</span><span class="hint-key">T</span><span>RESET</span><span class="hint-key">ESC</span><span>UNLOCK CURSOR</span></div></div>
+      <div class="bottom-right"><div class="scorebox"><small>CONFIRMED HITS</small><strong id="score">00</strong></div><div class="ammo"><span class="ammo-mark">▰</span><div><strong>AWM / .338</strong><small id="ammoCount">05 / 25 · READY</small></div></div></div>
       <div class="touch-controls" id="touchControls" aria-label="Touch game controls">
         <div class="move-pad" id="movePad" aria-label="Movement joystick">
           <div class="move-pad-ring"></div>
@@ -23,17 +23,19 @@
         <div class="touch-actions">
           <button class="touch-button wings-button" id="wingsButton" aria-label="Jump, flap, and glide">WINGS<small>TAP / HOLD</small></button>
           <button class="touch-button scope-button" id="scopeButton" aria-label="Hold to aim through scope">8×<small>SCOPE</small></button>
+          <button class="touch-button steady-button" id="steadyButton" aria-label="Hold breath to steady aim">STEADY</button>
+          <button class="touch-button reload-button" id="reloadButton" aria-label="Reload rifle">RLD</button>
           <button class="touch-button test-button" id="ragdollButton" aria-label="Test and reset ragdoll">TEST</button>
           <button class="touch-button fire-button" id="fireButton" aria-label="Fire sniper rifle">FIRE</button>
         </div>
         <div class="touch-look-hint">DRAG RIGHT SIDE TO LOOK</div>
       </div>
       <div class="crosshair" id="crosshair"><i></i><b></b></div>
-      <div class="scope-view" id="scopeView"><div class="scope-ring"><div class="scope-reticle"><i></i><b></b><span class="mil m1"></span><span class="mil m2"></span><span class="mil m3"></span><em></em></div><div class="scope-label">AWM · 8×</div></div></div>
+      <div class="scope-view" id="scopeView"><div class="scope-ring"><div class="scope-reticle"><i></i><b></b><span class="mil m1"></span><span class="mil m2"></span><span class="mil m3"></span><em></em></div><div class="scope-label"><span>AWM · 8× · ZERO 100M</span><span id="scopeWind">WIND 1.2 M/S →</span></div><div class="breath-meter" id="breathMeter"><span id="breathFill"></span></div></div></div>
       <div class="center-message" id="centerMessage"><div class="message-panel"><span class="eyebrow">FIELD TEST · 01</span><h1>THE FLIGHT<br><em>RANGE</em></h1><p>Ballistic shooting meets winged movement.</p><button id="startButton">ENTER RANGE <span>↗</span></button><small id="startHint">DESKTOP · MOUSE + KEYBOARD</small></div></div>
       <div class="hit-flash" id="hitFlash"><span>TARGET HIT</span></div>
       <div class="ragdoll-toast" id="ragdollToast">RAGDOLL TEST ACTIVE <span>PRESS T TO RESET</span></div>
-      <div class="corner-note">WIND <b>0.0 M/S</b><span>·</span> GRAVITY <b>9.81 M/S²</b></div>
+      <div class="corner-note">WIND <b>1.2 M/S →</b><span>·</span> ZERO <b>100 M</b><span>·</span> GRAVITY <b>9.81 M/S²</b></div>
     </div>
     <script type="module" src="/src/main.js"></script>
   </body>

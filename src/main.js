@@ -7,7 +7,52 @@ await RAPIER.init({});
 const FIXED_DT = 1 / 60;
 const GRAVITY = 9.81;
 const MUZZLE_VELOCITY = 850;
-const isTouchDevice = navigator.maxTouchPoints > 0 || matchMedia('(pointer: coarse)').matches;
+const BULLET_RADIUS = 0.0043;
+const BULLET_MASS = 0.016;
+const BULLET_AREA = Math.PI * BULLET_RADIUS ** 2;
+const AIR_DENSITY = 1.225;
+const DRAG_COEFFICIENT = 0.22;
+const WIND = Object.freeze({ x: 1.2, y: 0, z: 0 });
+const ZERO_RANGE = 100;
+const SIGHT_TO_MUZZLE_DROP = 0.07;
+const MAGAZINE_CAPACITY = 5;
+const MAX_BREATH = 4;
+const isTouchDevice = navigator.maxTouchPoints > 0 || 'ontouchstart' in window || matchMedia('(pointer: coarse)').matches || innerWidth <= 760;
+
+function simulateBulletHeightAtRange(angle, range) {
+  const dt = 0.002;
+  let z = 0;
+  let y = 0;
+  let vx = 0;
+  let vy = Math.sin(angle) * MUZZLE_VELOCITY;
+  let vz = -Math.cos(angle) * MUZZLE_VELOCITY;
+  for (let time = 0; -z < range && time < 1; time += dt) {
+    const rx = vx - WIND.x;
+    const ry = vy - WIND.y;
+    const rz = vz - WIND.z;
+    const relativeSpeed = Math.hypot(rx, ry, rz);
+    const dragScale = -0.5 * AIR_DENSITY * DRAG_COEFFICIENT * BULLET_AREA * relativeSpeed / BULLET_MASS;
+    vx += rx * dragScale * dt;
+    vy += (-GRAVITY + ry * dragScale) * dt;
+    vz += rz * dragScale * dt;
+    z += vz * dt;
+    y += vy * dt;
+  }
+  return y;
+}
+
+function calculateZeroAngle(range) {
+  let low = 0;
+  let high = 0.08;
+  for (let i = 0; i < 18; i++) {
+    const middle = (low + high) / 2;
+    if (simulateBulletHeightAtRange(middle, range) > SIGHT_TO_MUZZLE_DROP) high = middle;
+    else low = middle;
+  }
+  return (low + high) / 2;
+}
+
+const ZERO_ANGLE = calculateZeroAngle(ZERO_RANGE);
 
 const ui = {
   center: document.querySelector('#centerMessage'),
@@ -26,12 +71,19 @@ const ui = {
   scopeButton: document.querySelector('#scopeButton'),
   fireButton: document.querySelector('#fireButton'),
   ragdollButton: document.querySelector('#ragdollButton'),
+  reloadButton: document.querySelector('#reloadButton'),
+  steadyButton: document.querySelector('#steadyButton'),
+  ammoCount: document.querySelector('#ammoCount'),
+  breathMeter: document.querySelector('#breathMeter'),
+  breathFill: document.querySelector('#breathFill'),
+  scopeWind: document.querySelector('#scopeWind'),
   startHint: document.querySelector('#startHint'),
 };
 
+ui.scopeWind.textContent = `WIND ${WIND.x.toFixed(1)} M/S →`;
 if (isTouchDevice) {
   document.body.classList.add('touch-device');
-  ui.startHint.textContent = 'TOUCH CONTROLS · DRAG RIGHT SIDE TO LOOK';
+  ui.startHint.textContent = 'JOYSTICK LEFT · AIM RIGHT · FIRE / SCOPE / WINGS';
 }
 
 const scene = new THREE.Scene();
@@ -99,6 +151,16 @@ let pitch = 0;
 let recoil = 0;
 let scopeHeld = false;
 let spaceHeld = false;
+let steadyHeld = false;
+let breathRemaining = MAX_BREATH;
+let swayClock = 0;
+let aimSwayYaw = 0;
+let aimSwayPitch = 0;
+let roundsInMagazine = MAGAZINE_CAPACITY;
+let reserveRounds = 25;
+let boltCycle = 0;
+let reloadRemaining = 0;
+let statusTimer = 0;
 let flapCooldown = 0;
 let accumulator = 0;
 let lastTime = performance.now();
@@ -320,8 +382,8 @@ function createProjectile(origin, direction) {
       .setCcdEnabled(true),
   );
   const collider = world.createCollider(
-    RAPIER.ColliderDesc.ball(0.0054)
-      .setDensity(30000)
+    RAPIER.ColliderDesc.ball(BULLET_RADIUS)
+      .setDensity(BULLET_MASS / ((4 / 3) * Math.PI * BULLET_RADIUS ** 3))
       .setFriction(0.18)
       .setRestitution(0.04)
       .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS),
@@ -339,21 +401,66 @@ function createProjectile(origin, direction) {
   return bullet;
 }
 
+function updateAmmoHud() {
+  ui.ammoCount.textContent = `${String(roundsInMagazine).padStart(2, '0')} / ${String(reserveRounds).padStart(2, '0')}`;
+  ui.reloadButton.disabled = reloadRemaining > 0 || reserveRounds <= 0 || roundsInMagazine >= MAGAZINE_CAPACITY;
+}
+updateAmmoHud();
+
+function reloadRifle() {
+  if (!gameStarted || ragdollActive || reloadRemaining > 0) return;
+  if (reserveRounds <= 0 || roundsInMagazine >= MAGAZINE_CAPACITY) {
+    ui.status.textContent = reserveRounds <= 0 ? 'NO RESERVE AMMUNITION' : 'MAGAZINE FULL';
+    statusTimer = 1.1;
+    return;
+  }
+  reloadRemaining = 2.35;
+  boltCycle = 0;
+  steadyHeld = false;
+  ui.steadyButton.classList.remove('pressed');
+  ui.status.textContent = 'RELOADING';
+  ui.reloadButton.classList.add('pressed');
+  updateAmmoHud();
+}
+
+function applyProjectileForces() {
+  for (const bullet of bullets) {
+    if (bullet.ended) continue;
+    bullet.body.resetForces(false);
+    const velocity = bullet.body.linvel();
+    const relative = { x: velocity.x - WIND.x, y: velocity.y - WIND.y, z: velocity.z - WIND.z };
+    const speed = Math.hypot(relative.x, relative.y, relative.z);
+    const dragScale = -0.5 * AIR_DENSITY * DRAG_COEFFICIENT * BULLET_AREA * speed;
+    bullet.body.addForce({ x: relative.x * dragScale, y: relative.y * dragScale, z: relative.z * dragScale }, true);
+  }
+}
+
 function fire() {
-  if ((!locked && !isTouchDevice) || !gameStarted || ragdollActive) return;
+  if ((!locked && !isTouchDevice) || !gameStarted || ragdollActive || reloadRemaining > 0 || boltCycle > 0) return;
+  if (roundsInMagazine <= 0) {
+    ui.status.textContent = reserveRounds > 0 ? 'EMPTY · PRESS R TO RELOAD' : 'OUT OF AMMUNITION';
+    statusTimer = 1.4;
+    return;
+  }
   const direction = new THREE.Vector3();
   camera.getWorldDirection(direction);
+  const shotYaw = Math.atan2(-direction.x, -direction.z);
+  const shotPitch = Math.asin(THREE.MathUtils.clamp(direction.y, -1, 1)) + ZERO_ANGLE;
+  direction.set(-Math.sin(shotYaw) * Math.cos(shotPitch), Math.sin(shotPitch), -Math.cos(shotYaw) * Math.cos(shotPitch)).normalize();
   const origin = camera.position.clone().addScaledVector(direction, 1.05);
-  origin.y -= 0.07;
+  origin.y -= SIGHT_TO_MUZZLE_DROP;
   createProjectile(origin, direction);
+  roundsInMagazine -= 1;
+  updateAmmoHud();
+  boltCycle = 0.72;
+  statusTimer = 0;
+  steadyHeld = false;
+  ui.steadyButton.classList.remove('pressed');
   recoil = Math.min(recoil + (scopeHeld ? 0.035 : 0.022), 0.11);
   weapon.position.z = -0.66;
   muzzleTimer = 0.055;
   flashLight.intensity = 8;
-  ui.status.textContent = 'ROUND SENT · 850 M/S';
-  window.setTimeout(() => {
-    if (ui.status.textContent === 'ROUND SENT · 850 M/S') ui.status.textContent = 'RANGE READY';
-  }, 720);
+  ui.status.textContent = roundsInMagazine > 0 ? 'BOLT CYCLING' : 'EMPTY · RELOAD';
 }
 
 function hitTarget(target) {
@@ -364,9 +471,7 @@ function hitTarget(target) {
   ui.hit.classList.add('show');
   hitFlashTimer = 0.58;
   ui.status.textContent = `HIT CONFIRMED · ${Math.round(Math.abs(target.z))} M`;
-  window.setTimeout(() => {
-    if (!ragdollActive) ui.status.textContent = 'RANGE READY';
-  }, 950);
+  statusTimer = 1.1;
 }
 
 function resolveCollision(handle1, handle2, started) {
@@ -406,6 +511,8 @@ function createRagdoll() {
   avatar.visible = false;
   weapon.visible = false;
   scopeHeld = false;
+  steadyHeld = false;
+  ui.steadyButton.classList.remove('pressed', 'steady-active');
   ui.scope.classList.remove('active');
   ui.scopeButton.classList.remove('pressed');
   ui.crosshair.classList.remove('hidden');
@@ -498,6 +605,11 @@ function setScopeHeld(held) {
   ui.scope.classList.toggle('active', held);
   ui.crosshair.classList.toggle('hidden', held);
   ui.scopeButton.classList.toggle('pressed', held);
+}
+
+function setSteadyHeld(held) {
+  steadyHeld = held;
+  ui.steadyButton.classList.toggle('pressed', held);
 }
 
 function pressWings() {
@@ -654,6 +766,18 @@ function bindHoldButton(element, onPress, onRelease) {
 
 bindHoldButton(ui.wingsButton, pressWings, releaseWings);
 bindHoldButton(ui.scopeButton, () => setScopeHeld(true), () => setScopeHeld(false));
+ui.steadyButton.addEventListener('pointerdown', (event) => {
+  if (!isTouchDevice || !gameStarted || ragdollActive) return;
+  event.preventDefault();
+  event.stopPropagation();
+  setSteadyHeld(!steadyHeld);
+});
+ui.reloadButton.addEventListener('pointerdown', (event) => {
+  if (!isTouchDevice || !gameStarted || ragdollActive) return;
+  event.preventDefault();
+  event.stopPropagation();
+  reloadRifle();
+});
 ui.ragdollButton.addEventListener('pointerdown', (event) => {
   if (!isTouchDevice || !gameStarted) return;
   event.preventDefault();
@@ -684,16 +808,20 @@ document.addEventListener('keydown', (event) => {
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.code)) event.preventDefault();
   keys.add(event.code);
   if (event.code === 'Space' && !spaceHeld && gameStarted && (locked || isTouchDevice) && !ragdollActive) pressWings();
-  if (event.code === 'KeyR' && (locked || isTouchDevice) && gameStarted && !ragdollActive) createRagdoll();
+  if ((event.code === 'ShiftLeft' || event.code === 'ShiftRight') && gameStarted && (locked || isTouchDevice) && !ragdollActive) setSteadyHeld(true);
+  if (event.code === 'KeyR' && (locked || isTouchDevice) && gameStarted && !ragdollActive) reloadRifle();
+  if (event.code === 'KeyK' && (locked || isTouchDevice) && gameStarted && !ragdollActive) createRagdoll();
   if (event.code === 'KeyT' && ragdollActive) clearRagdollAndReset();
 });
 document.addEventListener('keyup', (event) => {
   keys.delete(event.code);
-  if (event.code === 'Space') spaceHeld = false;
+  if (event.code === 'Space') releaseWings();
+  if (event.code === 'ShiftLeft' || event.code === 'ShiftRight') setSteadyHeld(false);
 });
 window.addEventListener('blur', () => {
   keys.clear();
   releaseWings();
+  setSteadyHeld(false);
   resetMoveStick();
   if (gameStarted && !ragdollActive) setScopeHeld(false);
 });
@@ -733,7 +861,7 @@ function updatePlayer(dt) {
   }
 
   camera.position.set(position.x, position.y + eyeOffset, position.z);
-  camera.rotation.set(pitch + recoil, yaw, 0, 'YXZ');
+  camera.rotation.set(pitch + recoil + aimSwayPitch, yaw + aimSwayYaw, 0, 'YXZ');
   const velocity = playerBody.linvel();
   const horizontalSpeed = Math.hypot(velocity.x, velocity.z);
   ui.speed.textContent = String(Math.round(horizontalSpeed * 3.6)).padStart(2, '0');
@@ -786,6 +914,49 @@ function updateWeapon(dt) {
   const wantedFov = scopeHeld ? 13.5 : 72;
   camera.fov = THREE.MathUtils.damp(camera.fov, wantedFov, scopeHeld ? 10 : 8, dt);
   camera.updateProjectionMatrix();
+
+  if (reloadRemaining > 0) {
+    reloadRemaining = Math.max(0, reloadRemaining - dt);
+    ui.status.textContent = 'RELOADING';
+    if (reloadRemaining === 0) {
+      const loaded = Math.min(MAGAZINE_CAPACITY - roundsInMagazine, reserveRounds);
+      roundsInMagazine += loaded;
+      reserveRounds -= loaded;
+      ui.reloadButton.classList.remove('pressed');
+      updateAmmoHud();
+      ui.status.textContent = 'ROUND CHAMBERED';
+      statusTimer = 0.9;
+    }
+  } else if (boltCycle > 0) {
+    boltCycle = Math.max(0, boltCycle - dt);
+    if (boltCycle === 0) ui.status.textContent = roundsInMagazine > 0 ? 'RANGE READY' : 'EMPTY · PRESS R TO RELOAD';
+  } else if (statusTimer > 0) {
+    statusTimer = Math.max(0, statusTimer - dt);
+    if (statusTimer === 0) ui.status.textContent = 'RANGE READY';
+  }
+
+  const reloadProgress = reloadRemaining > 0 ? 1 - reloadRemaining / 2.35 : 0;
+  const cycleProgress = boltCycle > 0 ? 1 - boltCycle / 0.72 : 0;
+  const boltMotion = Math.sin(Math.PI * Math.max(reloadProgress, cycleProgress));
+  bolt.position.x = 0.13 + boltMotion * 0.085;
+  bolt.rotation.z = Math.PI / 2 + boltMotion * 0.2;
+
+  const velocity = playerBody && !ragdollActive ? playerBody.linvel() : { x: 0, z: 0 };
+  const horizontalSpeed = Math.hypot(velocity.x, velocity.z);
+  const steadyActive = scopeHeld && steadyHeld && breathRemaining > 0 && horizontalSpeed < 0.65 && playerOnGround();
+  if (steadyActive) breathRemaining = Math.max(0, breathRemaining - dt);
+  else breathRemaining = Math.min(MAX_BREATH, breathRemaining + dt * 0.55);
+  if (breathRemaining === 0 && steadyHeld) setSteadyHeld(false);
+  ui.breathMeter.classList.toggle('visible', scopeHeld);
+  ui.breathFill.style.transform = `scaleX(${breathRemaining / MAX_BREATH})`;
+  ui.steadyButton.classList.toggle('steady-active', steadyActive);
+  swayClock += dt * 1.1;
+  const breathingScale = steadyActive ? 0.08 : 1;
+  const scopeScale = scopeHeld ? 1 : 0.12;
+  const movementSway = Math.min(horizontalSpeed * (scopeHeld ? 0.00075 : 0.00012), scopeHeld ? 0.006 : 0.001);
+  aimSwayYaw = (Math.sin(swayClock * 0.75) * 0.0015 + Math.sin(swayClock * 1.37) * 0.00055) * breathingScale * scopeScale + Math.sin(swayClock * 2.1) * movementSway;
+  aimSwayPitch = (Math.sin(swayClock * 0.53 + 1.2) * 0.00125 + Math.sin(swayClock * 1.09) * 0.0004) * breathingScale * scopeScale;
+
   if (muzzleTimer > 0) {
     muzzleTimer -= dt;
     if (muzzleTimer <= 0) flashLight.intensity = 0;
@@ -808,6 +979,7 @@ function animate(now) {
     let steps = 0;
     while (accumulator >= FIXED_DT && steps < 6) {
       updatePlayer(FIXED_DT);
+      applyProjectileForces();
       world.step(eventQueue);
       eventQueue.drainCollisionEvents(resolveCollision);
       accumulator -= FIXED_DT;
