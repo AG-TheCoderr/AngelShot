@@ -25,6 +25,7 @@ The `Deploy static content to Pages` workflow builds the Vite app and publishes 
 - **R** — spawn an articulated physics ragdoll for testing
 - **T** — reset after the ragdoll test
 - **Esc** — release the pointer
+- **Touch devices** — left virtual joystick to move, drag the right side to aim, tap **FIRE**, hold **SCOPE**, and tap/hold **WINGS** to jump/flap/glide. **TEST** toggles the ragdoll and **RESET** returns to play.
 
 The test range has three steel targets at different distances and a hit counter. Movement uses a Rapier dynamic capsule with ground collision, gravity, and air control; the ragdoll uses linked rigid bodies and spherical joints. The render layer uses Three.js standard materials and simple geometry. No custom shaders or external art assets are required.
 

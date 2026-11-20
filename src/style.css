@@ -100,3 +100,66 @@ canvas { display: block; width: 100%; height: 100%; }
   .brand small { font-size: 7px; }
   .message-panel { padding: 34px 30px 29px; }
 }
+
+.touch-controls { display: none; position: absolute; inset: 0; z-index: 5; pointer-events: none; touch-action: none; }
+.touch-controls.active { display: block; }
+.touch-device, .touch-device body { overscroll-behavior: none; }
+body.touch-device, body.touch-device #game { height: 100dvh; }
+.touch-device #hud::after { margin: 8px; }
+.touch-device .bottom-left, .touch-device .corner-note { display: none; }
+.touch-device .bottom-right { top: calc(75px + env(safe-area-inset-top)); right: calc(22px + env(safe-area-inset-right)); bottom: auto; gap: 0; }
+.touch-device .scorebox { border: 0; padding: 0; }
+.touch-device .scorebox small { font-size: 7px; }
+.touch-device .scorebox strong { font-size: 24px; }
+.touch-device .ammo { display: none; }
+.touch-device .readout { top: calc(29px + env(safe-area-inset-top)); right: calc(22px + env(safe-area-inset-right)); gap: 6px; font-size: 8px; }
+.touch-device .readout i { margin: 0 2px; }
+.touch-device .readout #speed { font-size: 17px; }
+.touch-device .brand { top: calc(25px + env(safe-area-inset-top)); left: calc(22px + env(safe-area-inset-left)); }
+.touch-device .brand-mark { width: 29px; height: 29px; font-size: 19px; }
+.touch-device .brand strong { font-size: 14px; }
+.touch-device .brand small { font-size: 7px; }
+.touch-device canvas { touch-action: none; }
+.touch-device #hud { touch-action: none; }
+.touch-device .move-pad { position: absolute; left: calc(21px + env(safe-area-inset-left)); bottom: calc(25px + env(safe-area-inset-bottom)); width: 142px; height: 142px; pointer-events: auto; touch-action: none; -webkit-tap-highlight-color: transparent; }
+.move-pad-ring { position: absolute; inset: 0; border: 1px solid rgba(241,238,228,.42); border-radius: 50%; background: radial-gradient(circle, rgba(26,35,29,.35), rgba(17,24,20,.6)); box-shadow: inset 0 0 25px rgba(0,0,0,.24), 0 5px 20px rgba(0,0,0,.16); }
+.move-pad-ring::before, .move-pad-ring::after { content: ''; position: absolute; background: rgba(241,238,228,.15); }
+.move-pad-ring::before { top: 50%; left: 14%; right: 14%; height: 1px; }
+.move-pad-ring::after { left: 50%; top: 14%; bottom: 14%; width: 1px; }
+.move-stick { position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; transform: translate(-50%, -50%); border: 1px solid rgba(241,238,228,.74); border-radius: 50%; background: rgba(202,157,115,.82); box-shadow: 0 3px 12px rgba(0,0,0,.34), inset 0 0 0 5px rgba(24,31,26,.18); will-change: transform; }
+.move-pad > span { position: absolute; bottom: -17px; left: 50%; transform: translateX(-50%); color: rgba(241,238,228,.7); font: 8px var(--mono); letter-spacing: .18em; text-shadow: 0 1px 4px #111; }
+.touch-actions { position: absolute; right: calc(20px + env(safe-area-inset-right)); bottom: calc(23px + env(safe-area-inset-bottom)); width: 184px; height: 190px; pointer-events: none; }
+.touch-button { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 0; border: 1px solid rgba(241,238,228,.54); border-radius: 50%; color: var(--paper); background: rgba(20,28,23,.74); box-shadow: 0 4px 15px rgba(0,0,0,.28), inset 0 0 0 4px rgba(241,238,228,.05); backdrop-filter: blur(4px); pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; font: 700 11px var(--display); letter-spacing: .1em; transition: transform .08s, background .08s, border-color .08s; }
+.touch-button small { color: rgba(241,238,228,.64); font: 7px var(--mono); letter-spacing: .08em; }
+.touch-button.pressed { transform: scale(.94); background: rgba(195,124,76,.88); border-color: #f1c49f; }
+.fire-button { right: 0; bottom: 0; width: 83px; height: 83px; border-color: rgba(217,154,104,.8); color: #f3c39d; font-size: 13px; background: rgba(79,45,30,.78); }
+.wings-button { left: 0; bottom: 0; width: 78px; height: 78px; }
+.scope-button { right: 12px; top: 0; width: 61px; height: 61px; font-size: 15px; }
+.test-button { left: 7px; top: 12px; width: 64px; height: 34px; border-radius: 12px; color: #e4b18b; font-size: 9px; }
+.touch-look-hint { position: absolute; left: 50%; bottom: calc(13px + env(safe-area-inset-bottom)); transform: translateX(-50%); color: rgba(241,238,228,.47); font: 7px var(--mono); letter-spacing: .13em; white-space: nowrap; pointer-events: none; }
+.touch-device .crosshair { pointer-events: none; }
+.touch-device .scope-view { z-index: 2; pointer-events: none; }
+.touch-device .crosshair { z-index: 3; }
+.touch-device .hit-flash { z-index: 6; }
+.touch-device .center-message { z-index: 10; }
+.touch-device .message-panel { width: min(390px, calc(100vw - 38px)); padding: 32px 31px 28px; }
+.touch-device .message-panel h1 { font-size: 51px; }
+.touch-device .message-panel p { font-size: 11px; }
+.touch-device .message-panel > small { font-size: 7px; letter-spacing: .08em; }
+
+@media (max-width: 380px) {
+  .touch-device .move-pad { width: 124px; height: 124px; left: calc(16px + env(safe-area-inset-left)); bottom: calc(23px + env(safe-area-inset-bottom)); }
+  .touch-device .move-stick { width: 48px; height: 48px; }
+  .touch-device .touch-actions { right: calc(15px + env(safe-area-inset-right)); transform: scale(.9); transform-origin: bottom right; }
+  .touch-look-hint { display: none; }
+}
+@media (max-height: 500px) and (pointer: coarse) {
+  .touch-device .move-pad { width: 108px; height: 108px; }
+  .touch-device .move-stick { width: 44px; height: 44px; }
+  .touch-device .touch-actions { bottom: calc(12px + env(safe-area-inset-bottom)); transform: scale(.82); transform-origin: bottom right; }
+  .touch-device .touch-look-hint { bottom: calc(8px + env(safe-area-inset-bottom)); }
+  .touch-device .message-panel { padding: 21px 28px 19px; }
+  .touch-device .message-panel h1 { margin: 8px 0 5px; font-size: 40px; }
+  .touch-device .message-panel p { margin: 11px 0 15px; }
+  .touch-device .message-panel > small { margin-top: 9px; }
+}
