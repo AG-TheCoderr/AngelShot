@@ -11,6 +11,10 @@ npm run dev
 
 Open the Vite URL in a desktop browser. Build check: `npm run build`.
 
+## Deploy to GitHub Pages
+
+The `Deploy static content to Pages` workflow builds the Vite app and publishes `dist` on pushes to `main`. GitHub Pages is served from `/AngelShot/`; the workflow sets that Vite base path. For a local production build, run `npm run build`; set `VITE_BASE_PATH=/AngelShot/` if you want to preview the project-site paths locally.
+
 ## Milestone 1 controls
 
 - **W / A / S / D** — move
