@@ -7,6 +7,7 @@ await RAPIER.init({});
 const FIXED_DT = 1 / 60;
 const GRAVITY = 9.81;
 const MUZZLE_VELOCITY = 850;
+const isTouchDevice = navigator.maxTouchPoints > 0 || matchMedia('(pointer: coarse)').matches;
 
 const ui = {
   center: document.querySelector('#centerMessage'),
@@ -18,7 +19,20 @@ const ui = {
   status: document.querySelector('#status'),
   hit: document.querySelector('#hitFlash'),
   ragdoll: document.querySelector('#ragdollToast'),
+  touchControls: document.querySelector('#touchControls'),
+  movePad: document.querySelector('#movePad'),
+  moveStick: document.querySelector('#moveStick'),
+  wingsButton: document.querySelector('#wingsButton'),
+  scopeButton: document.querySelector('#scopeButton'),
+  fireButton: document.querySelector('#fireButton'),
+  ragdollButton: document.querySelector('#ragdollButton'),
+  startHint: document.querySelector('#startHint'),
 };
+
+if (isTouchDevice) {
+  document.body.classList.add('touch-device');
+  ui.startHint.textContent = 'TOUCH CONTROLS · DRAG RIGHT SIDE TO LOOK';
+}
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color('#a6b7b0');
@@ -27,8 +41,8 @@ const camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.06, 7
 camera.rotation.order = 'YXZ';
 scene.add(camera);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 1.7));
+const renderer = new THREE.WebGLRenderer({ antialias: !isTouchDevice, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, isTouchDevice ? 1.25 : 1.7));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -41,7 +55,7 @@ scene.add(new THREE.HemisphereLight('#e6f0e8', '#626b5c', 2.05));
 const sun = new THREE.DirectionalLight('#fff1d4', 3.1);
 sun.position.set(-28, 42, 16);
 sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.mapSize.set(isTouchDevice ? 1024 : 2048, isTouchDevice ? 1024 : 2048);
 sun.shadow.camera.left = -65;
 sun.shadow.camera.right = 65;
 sun.shadow.camera.top = 65;
@@ -326,7 +340,7 @@ function createProjectile(origin, direction) {
 }
 
 function fire() {
-  if (!locked || ragdollActive) return;
+  if ((!locked && !isTouchDevice) || !gameStarted || ragdollActive) return;
   const direction = new THREE.Vector3();
   camera.getWorldDirection(direction);
   const origin = camera.position.clone().addScaledVector(direction, 1.05);
@@ -393,9 +407,11 @@ function createRagdoll() {
   weapon.visible = false;
   scopeHeld = false;
   ui.scope.classList.remove('active');
+  ui.scopeButton.classList.remove('pressed');
   ui.crosshair.classList.remove('hidden');
   ui.status.textContent = 'RAGDOLL TEST';
   ui.ragdoll.classList.add('show');
+  ui.ragdollButton.textContent = 'RESET';
   const root = bodyPosition(playerBody);
   const oldYaw = yaw;
   world.removeRigidBody(playerBody);
@@ -464,6 +480,7 @@ function clearRagdollAndReset() {
   avatar.visible = true;
   weapon.visible = true;
   ui.ragdoll.classList.remove('show');
+  ui.ragdollButton.textContent = 'TEST';
   ui.status.textContent = 'RANGE READY';
   ({ body: playerBody, collider: playerCollider } = createPlayer());
   yaw = 0;
@@ -474,12 +491,51 @@ function clearRagdollAndReset() {
 function requestPointerLock() {
   renderer.domElement.requestPointerLock?.();
 }
+
+function setScopeHeld(held) {
+  if (ragdollActive || !gameStarted) return;
+  scopeHeld = held;
+  ui.scope.classList.toggle('active', held);
+  ui.crosshair.classList.toggle('hidden', held);
+  ui.scopeButton.classList.toggle('pressed', held);
+}
+
+function pressWings() {
+  if (!gameStarted || ragdollActive || spaceHeld) return;
+  spaceHeld = true;
+  if (playerOnGround()) {
+    const velocity = playerBody.linvel();
+    playerBody.setLinvel({ x: velocity.x, y: Math.max(velocity.y, 6.2), z: velocity.z }, true);
+    flapCooldown = 0.28;
+  } else if (flapCooldown <= 0) {
+    const velocity = playerBody.linvel();
+    playerBody.setLinvel({ x: velocity.x, y: Math.max(velocity.y, 5.3), z: velocity.z }, true);
+    flapCooldown = 0.85;
+  }
+}
+
+function releaseWings() {
+  spaceHeld = false;
+}
+
+function applyLookDelta(deltaX, deltaY) {
+  if (ragdollActive) return;
+  const sensitivity = scopeHeld ? 0.00075 : 0.00155;
+  yaw -= deltaX * sensitivity;
+  pitch = THREE.MathUtils.clamp(pitch - deltaY * sensitivity, -1.35, 1.35);
+}
+
 ui.start.addEventListener('click', () => {
   gameStarted = true;
-  requestPointerLock();
+  if (isTouchDevice) {
+    ui.touchControls.classList.add('active');
+    ui.center.classList.add('hidden');
+  } else {
+    requestPointerLock();
+  }
 });
 renderer.domElement.addEventListener('click', () => {
-  if (gameStarted && !locked) requestPointerLock();
+  if (gameStarted && !locked && !isTouchDevice) requestPointerLock();
 });
 document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === renderer.domElement;
@@ -487,43 +543,148 @@ document.addEventListener('pointerlockchange', () => {
 });
 document.addEventListener('mousemove', (event) => {
   if (!locked || ragdollActive) return;
-  const sensitivity = scopeHeld ? 0.00075 : 0.00155;
-  yaw -= event.movementX * sensitivity;
-  pitch -= event.movementY * sensitivity;
-  pitch = THREE.MathUtils.clamp(pitch, -1.35, 1.35);
+  applyLookDelta(event.movementX, event.movementY);
 });
+
+let lookPointerId = null;
+let lookLastX = 0;
+let lookLastY = 0;
+renderer.domElement.addEventListener('pointerdown', (event) => {
+  if (!isTouchDevice || event.pointerType !== 'touch' || !gameStarted || ragdollActive || event.clientX < innerWidth * 0.32) return;
+  event.preventDefault();
+  lookPointerId = event.pointerId;
+  lookLastX = event.clientX;
+  lookLastY = event.clientY;
+  renderer.domElement.setPointerCapture(event.pointerId);
+});
+renderer.domElement.addEventListener('pointermove', (event) => {
+  if (event.pointerId !== lookPointerId) return;
+  event.preventDefault();
+  const deltaX = event.clientX - lookLastX;
+  const deltaY = event.clientY - lookLastY;
+  lookLastX = event.clientX;
+  lookLastY = event.clientY;
+  const touchSensitivity = scopeHeld ? 0.0021 : 0.004;
+  yaw -= deltaX * touchSensitivity;
+  pitch = THREE.MathUtils.clamp(pitch - deltaY * touchSensitivity, -1.35, 1.35);
+});
+const endLook = (event) => {
+  if (event.pointerId === lookPointerId) lookPointerId = null;
+};
+renderer.domElement.addEventListener('pointerup', endLook);
+renderer.domElement.addEventListener('pointercancel', endLook);
+
 document.addEventListener('mousedown', (event) => {
+  if (isTouchDevice) return;
   if (event.button === 0) fire();
-  if (event.button === 2 && locked && !ragdollActive) {
-    scopeHeld = true;
-    ui.scope.classList.add('active');
-    ui.crosshair.classList.add('hidden');
-  }
+  if (event.button === 2 && locked && !ragdollActive) setScopeHeld(true);
 });
 document.addEventListener('mouseup', (event) => {
-  if (event.button === 2) {
-    scopeHeld = false;
-    ui.scope.classList.remove('active');
-    ui.crosshair.classList.remove('hidden');
-  }
+  if (isTouchDevice) return;
+  if (event.button === 2) setScopeHeld(false);
 });
 document.addEventListener('contextmenu', (event) => event.preventDefault());
+
+let movePointerId = null;
+let moveInputX = 0;
+let moveInputY = 0;
+function updateMoveStick(event) {
+  const rect = ui.movePad.getBoundingClientRect();
+  const centerX = rect.left + rect.width / 2;
+  const centerY = rect.top + rect.height / 2;
+  const radius = rect.width * 0.34;
+  let dx = event.clientX - centerX;
+  let dy = event.clientY - centerY;
+  const length = Math.hypot(dx, dy);
+  if (length > radius) {
+    dx = dx / length * radius;
+    dy = dy / length * radius;
+  }
+  moveInputX = dx / radius;
+  moveInputY = -dy / radius;
+  ui.moveStick.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+}
+function resetMoveStick() {
+  movePointerId = null;
+  moveInputX = 0;
+  moveInputY = 0;
+  ui.moveStick.style.transform = 'translate(-50%, -50%)';
+}
+ui.movePad.addEventListener('pointerdown', (event) => {
+  if (!isTouchDevice || !gameStarted || ragdollActive || movePointerId !== null) return;
+  event.preventDefault();
+  movePointerId = event.pointerId;
+  ui.movePad.setPointerCapture(event.pointerId);
+  updateMoveStick(event);
+});
+ui.movePad.addEventListener('pointermove', (event) => {
+  if (event.pointerId === movePointerId) {
+    event.preventDefault();
+    updateMoveStick(event);
+  }
+});
+ui.movePad.addEventListener('pointerup', (event) => {
+  if (event.pointerId === movePointerId) resetMoveStick();
+});
+ui.movePad.addEventListener('pointercancel', (event) => {
+  if (event.pointerId === movePointerId) resetMoveStick();
+});
+
+function bindHoldButton(element, onPress, onRelease) {
+  let activePointer = null;
+  element.addEventListener('pointerdown', (event) => {
+    if (!isTouchDevice || !gameStarted || ragdollActive || activePointer !== null) return;
+    event.preventDefault();
+    event.stopPropagation();
+    activePointer = event.pointerId;
+    element.setPointerCapture(event.pointerId);
+    element.classList.add('pressed');
+    onPress();
+  });
+  const end = (event) => {
+    if (event.pointerId !== activePointer) return;
+    activePointer = null;
+    element.classList.remove('pressed');
+    onRelease();
+  };
+  element.addEventListener('pointerup', end);
+  element.addEventListener('pointercancel', end);
+  element.addEventListener('lostpointercapture', end);
+}
+
+bindHoldButton(ui.wingsButton, pressWings, releaseWings);
+bindHoldButton(ui.scopeButton, () => setScopeHeld(true), () => setScopeHeld(false));
+ui.ragdollButton.addEventListener('pointerdown', (event) => {
+  if (!isTouchDevice || !gameStarted) return;
+  event.preventDefault();
+  event.stopPropagation();
+  if (ragdollActive) clearRagdollAndReset();
+  else createRagdoll();
+});
+let firePointerId = null;
+ui.fireButton.addEventListener('pointerdown', (event) => {
+  if (!isTouchDevice || !gameStarted || ragdollActive || firePointerId !== null) return;
+  event.preventDefault();
+  event.stopPropagation();
+  firePointerId = event.pointerId;
+  ui.fireButton.setPointerCapture(event.pointerId);
+  ui.fireButton.classList.add('pressed');
+  fire();
+});
+const releaseFire = (event) => {
+  if (event.pointerId !== firePointerId) return;
+  firePointerId = null;
+  ui.fireButton.classList.remove('pressed');
+};
+ui.fireButton.addEventListener('pointerup', releaseFire);
+ui.fireButton.addEventListener('pointercancel', releaseFire);
+ui.fireButton.addEventListener('lostpointercapture', releaseFire);
+
 document.addEventListener('keydown', (event) => {
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.code)) event.preventDefault();
   keys.add(event.code);
-  if (event.code === 'Space' && !spaceHeld && locked && !ragdollActive) {
-    spaceHeld = true;
-    if (playerOnGround()) {
-      const velocity = playerBody.linvel();
-      playerBody.setLinvel({ x: velocity.x, y: Math.max(velocity.y, 6.2), z: velocity.z }, true);
-      flapCooldown = 0.28;
-    } else if (flapCooldown <= 0) {
-      const velocity = playerBody.linvel();
-      playerBody.setLinvel({ x: velocity.x, y: Math.max(velocity.y, 5.3), z: velocity.z }, true);
-      flapCooldown = 0.85;
-    }
-  }
-  if (event.code === 'KeyR' && locked && !ragdollActive) createRagdoll();
+  if (event.code === 'Space' && !spaceHeld && gameStarted && (locked || isTouchDevice) && !ragdollActive) pressWings();
+  if (event.code === 'KeyR' && (locked || isTouchDevice) && gameStarted && !ragdollActive) createRagdoll();
   if (event.code === 'KeyT' && ragdollActive) clearRagdollAndReset();
 });
 document.addEventListener('keyup', (event) => {
@@ -532,7 +693,9 @@ document.addEventListener('keyup', (event) => {
 });
 window.addEventListener('blur', () => {
   keys.clear();
-  spaceHeld = false;
+  releaseWings();
+  resetMoveStick();
+  if (gameStarted && !ragdollActive) setScopeHeld(false);
 });
 
 function updatePlayer(dt) {
@@ -542,8 +705,8 @@ function updatePlayer(dt) {
   playerBody.setGravityScale(gliding ? 0.22 : 1, true);
   flapCooldown = Math.max(0, flapCooldown - dt);
 
-  const forwardInput = Number(keys.has('KeyW') || keys.has('ArrowUp')) - Number(keys.has('KeyS') || keys.has('ArrowDown'));
-  const sideInput = Number(keys.has('KeyD') || keys.has('ArrowRight')) - Number(keys.has('KeyA') || keys.has('ArrowLeft'));
+  const forwardInput = Number(keys.has('KeyW') || keys.has('ArrowUp')) - Number(keys.has('KeyS') || keys.has('ArrowDown')) + moveInputY;
+  const sideInput = Number(keys.has('KeyD') || keys.has('ArrowRight')) - Number(keys.has('KeyA') || keys.has('ArrowLeft')) + moveInputX;
   const inputLength = Math.hypot(forwardInput, sideInput) || 1;
   const forwardX = -Math.sin(yaw);
   const forwardZ = -Math.cos(yaw);
@@ -663,7 +826,7 @@ window.addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.7));
+  renderer.setPixelRatio(Math.min(devicePixelRatio, isTouchDevice ? 1.25 : 1.7));
 });
 
 requestAnimationFrame(animate);
