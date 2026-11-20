@@ -12,8 +12,17 @@ const BULLET_MASS = 0.016;
 const BULLET_AREA = Math.PI * BULLET_RADIUS ** 2;
 const AIR_DENSITY = 1.225;
 const DRAG_COEFFICIENT = 0.22;
-const WIND = Object.freeze({ x: 1.2, y: 0, z: 0 });
-const ZERO_RANGE = 100;
+const WIND = { x: 1.2, y: 0, z: 0 };
+const ZERO_RANGES = [100, 200, 300];
+const SCOPE_MAGNIFICATIONS = [4, 8, 12];
+const WIND_PRESETS = [
+  { label: 'CALM', speed: 0 },
+  { label: 'CROSS', speed: 1.2 },
+  { label: 'GUST', speed: 2.4 },
+];
+let zeroRange = 100;
+let scopeMagnification = 8;
+let windPresetIndex = 1;
 const SIGHT_TO_MUZZLE_DROP = 0.07;
 const MAGAZINE_CAPACITY = 5;
 const MAX_BREATH = 4;
@@ -52,7 +61,7 @@ function calculateZeroAngle(range) {
   return (low + high) / 2;
 }
 
-const ZERO_ANGLE = calculateZeroAngle(ZERO_RANGE);
+let zeroAngle = calculateZeroAngle(zeroRange);
 
 const ui = {
   center: document.querySelector('#centerMessage'),
@@ -69,6 +78,7 @@ const ui = {
   moveStick: document.querySelector('#moveStick'),
   wingsButton: document.querySelector('#wingsButton'),
   scopeButton: document.querySelector('#scopeButton'),
+  scopeButtonValue: document.querySelector('#scopeButtonValue'),
   fireButton: document.querySelector('#fireButton'),
   ragdollButton: document.querySelector('#ragdollButton'),
   reloadButton: document.querySelector('#reloadButton'),
@@ -77,13 +87,57 @@ const ui = {
   breathMeter: document.querySelector('#breathMeter'),
   breathFill: document.querySelector('#breathFill'),
   scopeWind: document.querySelector('#scopeWind'),
+  scopeMagnificationLabel: document.querySelector('#scopeMagnificationLabel'),
+  scopeZeroLabel: document.querySelector('#scopeZeroLabel'),
+  cornerWind: document.querySelector('#cornerWind'),
+  cornerZero: document.querySelector('#cornerZero'),
+  zeroSetting: document.querySelector('#zeroSetting'),
+  zeroValue: document.querySelector('#zeroValue'),
+  magnificationSetting: document.querySelector('#magnificationSetting'),
+  magnificationValue: document.querySelector('#magnificationValue'),
+  windSetting: document.querySelector('#windSetting'),
+  windValue: document.querySelector('#windValue'),
   startHint: document.querySelector('#startHint'),
 };
 
-ui.scopeWind.textContent = `WIND ${WIND.x.toFixed(1)} M/S →`;
+let zeroSettingIndex = ZERO_RANGES.indexOf(zeroRange);
+let magnificationIndex = SCOPE_MAGNIFICATIONS.indexOf(scopeMagnification);
+function updateSetupLabels() {
+  const wind = WIND_PRESETS[windPresetIndex];
+  WIND.x = wind.speed;
+  ui.zeroValue.textContent = `${zeroRange} M`;
+  ui.magnificationValue.textContent = `${scopeMagnification}×`;
+  ui.windValue.textContent = wind.speed === 0 ? 'CALM' : `${wind.speed.toFixed(1)} →`;
+  ui.scopeWind.textContent = wind.speed === 0 ? 'WIND CALM' : `WIND ${wind.speed.toFixed(1)} M/S →`;
+  ui.scopeMagnificationLabel.textContent = `${scopeMagnification}×`;
+  ui.scopeZeroLabel.textContent = `${zeroRange}M`;
+  ui.scopeButtonValue.textContent = `${scopeMagnification}×`;
+  ui.cornerWind.textContent = wind.speed === 0 ? 'CALM' : `${wind.speed.toFixed(1)} M/S →`;
+  ui.cornerZero.textContent = `${zeroRange} M`;
+}
+ui.zeroSetting.addEventListener('click', () => {
+  if (gameStarted) return;
+  zeroSettingIndex = (zeroSettingIndex + 1) % ZERO_RANGES.length;
+  zeroRange = ZERO_RANGES[zeroSettingIndex];
+  zeroAngle = calculateZeroAngle(zeroRange);
+  updateSetupLabels();
+});
+ui.magnificationSetting.addEventListener('click', () => {
+  if (gameStarted) return;
+  magnificationIndex = (magnificationIndex + 1) % SCOPE_MAGNIFICATIONS.length;
+  scopeMagnification = SCOPE_MAGNIFICATIONS[magnificationIndex];
+  updateSetupLabels();
+});
+ui.windSetting.addEventListener('click', () => {
+  if (gameStarted) return;
+  windPresetIndex = (windPresetIndex + 1) % WIND_PRESETS.length;
+  updateSetupLabels();
+  zeroAngle = calculateZeroAngle(zeroRange);
+});
+updateSetupLabels();
 if (isTouchDevice) {
   document.body.classList.add('touch-device');
-  ui.startHint.textContent = 'JOYSTICK LEFT · AIM RIGHT · FIRE / SCOPE / WINGS';
+  ui.startHint.textContent = 'TAP OPTIONS TO SET UP · JOYSTICK LEFT · AIM RIGHT';
 }
 
 const scene = new THREE.Scene();
@@ -445,7 +499,7 @@ function fire() {
   const direction = new THREE.Vector3();
   camera.getWorldDirection(direction);
   const shotYaw = Math.atan2(-direction.x, -direction.z);
-  const shotPitch = Math.asin(THREE.MathUtils.clamp(direction.y, -1, 1)) + ZERO_ANGLE;
+  const shotPitch = Math.asin(THREE.MathUtils.clamp(direction.y, -1, 1)) + zeroAngle;
   direction.set(-Math.sin(shotYaw) * Math.cos(shotPitch), Math.sin(shotPitch), -Math.cos(shotYaw) * Math.cos(shotPitch)).normalize();
   const origin = camera.position.clone().addScaledVector(direction, 1.05);
   origin.y -= SIGHT_TO_MUZZLE_DROP;
@@ -911,7 +965,7 @@ function updateTargets(dt) {
 function updateWeapon(dt) {
   recoil = THREE.MathUtils.damp(recoil, 0, 9, dt);
   weapon.position.z = THREE.MathUtils.damp(weapon.position.z, -0.72, 14, dt);
-  const wantedFov = scopeHeld ? 13.5 : 72;
+  const wantedFov = scopeHeld ? 72 / scopeMagnification : 72;
   camera.fov = THREE.MathUtils.damp(camera.fov, wantedFov, scopeHeld ? 10 : 8, dt);
   camera.updateProjectionMatrix();
 

@@ -15,6 +15,10 @@ Open the Vite URL in a desktop browser. Build check: `npm run build`.
 
 The `Deploy static content to Pages` workflow builds the Vite app and publishes `dist` on pushes to `main`. GitHub Pages is served from `/AngelShot/`; the workflow sets that Vite base path. For a local production build, run `npm run build`; set `VITE_BASE_PATH=/AngelShot/` if you want to preview the project-site paths locally.
 
+## Pre-flight rifle setup
+
+Before entering the range, cycle the optic zero (100/200/300 m), scope magnification (4×/8×/12×), and crosswind profile (calm/1.2/2.4 m/s). The selected values drive the scope FOV, the ballistic zero solver, and projectile wind-drift forces.
+
 ## Milestone 1 controls
 
 - **W / A / S / D** — move
